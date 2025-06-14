@@ -6,8 +6,10 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+console.log('__dirname:', __dirname);
 
 const jsonPath = path.join(__dirname, '..', 'subscribers', 'whiteList.json');
+console.log('jsonPath:', jsonPath);
 
 export async function loadWhiteList() {
   try {

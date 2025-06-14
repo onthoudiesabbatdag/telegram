@@ -2,11 +2,11 @@
 
 async function subscribeMessage(bot, chatId) {
     try {
-        const response = await bot.sendMessage(chatId, "Choose an option:", {
+        const response = await bot.sendMessage(chatId, "Kies n Opsie:", {
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: "Subscribe", callback_data: "subscribe" }],
-                    [{ text: "Unsubscribe", callback_data: "unsubscribe" }],
+                    [{ text: "Teken Op", callback_data: "subscribe" }],
+                    [{ text: "Teken Uit", callback_data: "unsubscribe" }],
                 ],
             },
         });

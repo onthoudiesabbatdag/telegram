@@ -2,7 +2,10 @@
 
 
 import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
+import cors from 'cors';
 import TelegramBot from 'node-telegram-bot-api';
 
 import fs from 'fs';
@@ -19,10 +22,28 @@ console.log("jsonPath in server:", jsonPath)
 import subscribeMessage from './components/subscribe_message.js';
 import { loadWhiteList, saveWhiteList } from './lib/handleWhiteList.js';
 
-dotenv.config();
+import logger from './lib/logger.js';
+if (['production', 'staging'].includes(process.env.NODE_ENV)) {
+  console.log = (...args) => logger.info(args.join(' '));
+  console.error = (...args) => logger.error(args.join(' '));
+}
+
+const allowedOrigins = process.env.ALLOWED_ORIGENS;
+// console.log("allowedOrigins:", allowedOrigins)
 
 const app = express();
-const PORT = process.env.PORT || 3003;
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    console.warn('Blocked by CORS:', origin);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+}));
+
+app.options('*', cors());
 
 const TOKEN = process.env.TOKEN;
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
@@ -47,26 +68,31 @@ app.post('/webhook', async (req, res) => {
 
     } catch (e){
 
-      console.log("Receiving a message from external source in webhook")
+      console.error("Receiving a message from external source in webhook")
 
         let message = JSON.stringify(req.body)
 
-        bot.sendMessage(process.env.CHAT_ID || '7017491148', message)
+        bot.sendMessage('7017491148', message)
         res.sendStatus(200);
-
     }
 });
 
 bot.on('message', async(msg) => {
     const chatId = msg.chat.id;
-    console.log("chatId in message:", chatId)
+    console.log("chatId in bot.on message:", chatId)
 
 
-    if (msg.text.toLowerCase() === 'hi') {
-        bot.sendMessage(chatId, 'Hello World');
-    }
+    if (msg.text.toLowerCase() === 'teken') {
+        await subscribeMessage(bot, chatId);
+        return;
+    } 
 
-    await subscribeMessage(bot, chatId);
+    await bot.sendMessage(chatId, 
+      `Baie welkom by ons Onthou die Sabbatdag Kanaal! Teken in vir die link om na die nuuste boodskap te luister.
+
+  1.  Stuur die woordjie, teken`
+    )
+
 });
 
 bot.on('callback_query', async (query) => {
@@ -74,15 +100,15 @@ bot.on('callback_query', async (query) => {
   const action = query.data;
 
   let whiteList = await loadWhiteList();
-  // console.log("whiteList in callback_query:", whiteList);
+  console.log("whiteList in callback_query:", whiteList);
 
   if (action === 'subscribe') {
     if (!whiteList.includes(cbChatId)) {
       whiteList.push(cbChatId);
       await saveWhiteList(whiteList);
-      await bot.sendMessage(cbChatId, `✅ You've been added to the subscription list.`);
+      await bot.sendMessage(cbChatId, `✅ Jy is nou op die intekenlys.`);
     } else {
-      await bot.sendMessage(cbChatId, `ℹ️ You're already subscribed.`);
+      await bot.sendMessage(cbChatId, `ℹ️ Jy is alreeds op die intekenlys.`);
     }
   }
 
@@ -90,9 +116,9 @@ bot.on('callback_query', async (query) => {
     if (whiteList.includes(cbChatId)) {
       whiteList = whiteList.filter(id => id !== cbChatId);
       await saveWhiteList(whiteList);
-      await bot.sendMessage(cbChatId, `❎ You've been removed from the subscription list.`);
+      await bot.sendMessage(cbChatId, `❎ Jy is nou afgehaal van die intekenlys.`);
     } else {
-      await bot.sendMessage(cbChatId, `ℹ️ You're not currently subscribed.`);
+      await bot.sendMessage(cbChatId, `ℹ️ Jy is nie op die intekenlys nie.`);
     }
   }
 
@@ -104,6 +130,7 @@ app.get('/', (_, res) => {
   res.send('Telegram App is running!');
 });
 
+const PORT = process.env.PORT || 3003;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
