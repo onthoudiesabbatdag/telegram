@@ -2,19 +2,24 @@
 
 import dotenv from 'dotenv';
 dotenv.config();
+const env = process.env.NODE_ENV;
 
 import fs from 'fs';
 import path from 'path';
 import winston from 'winston';
 import 'winston-daily-rotate-file';
+import { fileURLToPath } from 'url';
 
-const logDir = 'src/logs';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const logDir = path.join(__dirname, '../logs');
+
 if (!fs.existsSync(logDir)) {
-  // console.log("Creating logs directory...");
   fs.mkdirSync(logDir, { recursive: true });
 }
 
-const env = process.env.NODE_ENV;
+// console.log("Creating logs directory...");
 // console.log("Winston environment:", env);
 
 const transportLog = new winston.transports.DailyRotateFile({
