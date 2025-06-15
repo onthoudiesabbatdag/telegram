@@ -83,8 +83,17 @@ export default async function handleYouTubeVideos() {
     fs.mkdirSync(outputDir);
   }
 
-  fs.writeFileSync(outputFile, JSON.stringify(result, null, 2));
-  // console.log(`✅ Saved to ${outputFile}`);
+  try{
+
+    fs.writeFileSync(outputFile, JSON.stringify(result, null, 2));
+    console.log(`Saved to ${outputFile}`);
+
+  } catch (e){
+
+    console.error(`Could  NOT save to ${outputFile}`);
+
+  }
+  
 }
 
 // run();

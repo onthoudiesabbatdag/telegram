@@ -83,13 +83,9 @@ async function listShorts() {
   });
 }
 
-(async () => {
-  await listPlaylists();
-  await listShorts();
-})();
-
-
-
-
+// (async () => {
+//   await listPlaylists();
+//   await listShorts();
+// })();
 
 export {listVideos, listPlaylists, listShorts}

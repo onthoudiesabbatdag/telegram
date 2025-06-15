@@ -15,7 +15,7 @@ if (!fs.existsSync(logDir)) {
 }
 
 const env = process.env.NODE_ENV;
-console.log("Winston environment:", env); // 🔍 debug log
+// console.log("Winston environment:", env);
 
 const transportLog = new winston.transports.DailyRotateFile({
   filename: `${logDir}/access-%DATE%.log`,
