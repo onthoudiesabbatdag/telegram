@@ -1,11 +1,10 @@
-
-
 import dotenv from 'dotenv';
 dotenv.config();
 
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -25,12 +24,27 @@ function parseDuration(isoDuration) {
   return minutes * 60 + seconds;
 }
 
-async function fetchPlaylists() {
-  const url = `https://www.googleapis.com/youtube/v3/playlists?key=${API_KEY}&channelId=${CHANNEL_ID}&part=snippet&maxResults=50`;
-  const res = await fetch(url);
-  const data = await res.json();
+async function fetchPaginatedResults(baseUrl) {
+  let allItems = [];
+  let nextPageToken = '';
 
-  data.items?.forEach(item => {
+  do {
+    const url = `${baseUrl}&pageToken=${nextPageToken}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Failed to fetch: ${res.statusText}`);
+    const data = await res.json();
+    allItems = allItems.concat(data.items || []);
+    nextPageToken = data.nextPageToken || '';
+  } while (nextPageToken);
+
+  return allItems;
+}
+
+async function fetchPlaylists() {
+  const baseUrl = `https://www.googleapis.com/youtube/v3/playlists?key=${API_KEY}&channelId=${CHANNEL_ID}&part=snippet&maxResults=50`;
+  const items = await fetchPaginatedResults(baseUrl);
+
+  items.forEach(item => {
     result.playlists.push({
       title: item.snippet.title,
       link: `https://www.youtube.com/playlist?list=${item.id}`
@@ -39,63 +53,56 @@ async function fetchPlaylists() {
 }
 
 async function fetchVideosAndShorts() {
-  const url = `https://www.googleapis.com/youtube/v3/search?key=${API_KEY}&channelId=${CHANNEL_ID}&part=snippet,id&order=date&maxResults=50`;
-  const res = await fetch(url);
-  const data = await res.json();
+  const baseUrl = `https://www.googleapis.com/youtube/v3/search?key=${API_KEY}&channelId=${CHANNEL_ID}&part=snippet,id&order=date&maxResults=50`;
+  const items = await fetchPaginatedResults(baseUrl);
 
-  for (const item of data.items) {
-    if (item.id.videoId) {
-      const videoId = item.id.videoId;
-      const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?key=${API_KEY}&id=${videoId}&part=snippet,contentDetails`;
-      const detailRes = await fetch(detailsUrl);
-      const detailData = await detailRes.json();
-      const video = detailData.items?.[0];
+  const videoIds = items
+    .filter(item => item.id.videoId)
+    .map(item => item.id.videoId);
 
-      if (video) {
-        const title = video.snippet.title;
-        const duration = parseDuration(video.contentDetails.duration);
+  // Batch in chunks of 50
+  for (let i = 0; i < videoIds.length; i += 50) {
+    const batchIds = videoIds.slice(i, i + 50).join(',');
+    const url = `https://www.googleapis.com/youtube/v3/videos?key=${API_KEY}&id=${batchIds}&part=snippet,contentDetails`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Failed to fetch video details: ${res.statusText}`);
+    const data = await res.json();
 
-        const videoObj = {
-          title,
-          link: duration <= 60
-            ? `https://www.youtube.com/shorts/${videoId}`
-            : `https://www.youtube.com/watch?v=${videoId}`
-        };
+    data.items?.forEach(video => {
+      const title = video.snippet.title;
+      const videoId = video.id;
+      const duration = parseDuration(video.contentDetails.duration);
+      const videoObj = {
+        title,
+        link: duration <= 60
+          ? `https://www.youtube.com/shorts/${videoId}`
+          : `https://www.youtube.com/watch?v=${videoId}`
+      };
 
-        if (duration <= 60) {
-          result.shorts.push(videoObj);
-        } else {
-          result.videos.push(videoObj);
-        }
+      if (duration <= 60) {
+        result.shorts.push(videoObj);
+      } else {
+        result.videos.push(videoObj);
       }
-    }
+    });
   }
 }
 
 export default async function handleYouTubeVideos() {
-  await fetchPlaylists();
-  await fetchVideosAndShorts();
+  try {
+    await fetchPlaylists();
+    await fetchVideosAndShorts();
 
-  const outputDir = path.join(__dirname, '../videos');
-  const outputFile = path.join(outputDir, 'youTubeVideoList.json');
+    const outputDir = path.join(__dirname, '../videos');
+    const outputFile = path.join(outputDir, 'youTubeVideoList.json');
 
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir);
-  }
-
-  try{
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
 
     fs.writeFileSync(outputFile, JSON.stringify(result, null, 2));
-    console.log(`Saved to ${outputFile}`);
-
-  } catch (e){
-
-    console.error(`Could  NOT save to ${outputFile}`);
-
+    console.log(`✅ Saved to ${outputFile}`);
+  } catch (err) {
+    console.error('❌ Error during processing:', err.message);
   }
-  
 }
-
-// run();
-
-// export { fetchPlaylists, fetchVideosAndShorts }
