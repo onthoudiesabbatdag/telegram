@@ -102,7 +102,6 @@ bot.on('message', async(msg) => {
 
     whiteList = await loadWhiteList();
 
-
     if (msg.text.toLowerCase() === 'teken') {
         await subscribeMessage(bot, chatId);
         return;

@@ -17,5 +17,4 @@ async function shareMessage(bot, chatId) {
     }
 }
 
-
 export default shareMessage
