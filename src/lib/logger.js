@@ -10,7 +10,7 @@ import 'winston-daily-rotate-file';
 
 const logDir = 'src/logs';
 if (!fs.existsSync(logDir)) {
-  console.log("Creating logs directory...");
+  // console.log("Creating logs directory...");
   fs.mkdirSync(logDir, { recursive: true });
 }
 

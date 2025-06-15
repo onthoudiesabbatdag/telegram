@@ -6,10 +6,10 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-console.log('__dirname:', __dirname);
+// console.log('__dirname:', __dirname);
 
 const jsonPath = path.join(__dirname, '..', 'subscribers', 'whiteList.json');
-console.log('jsonPath:', jsonPath);
+// console.log('jsonPath:', jsonPath);
 
 export async function loadWhiteList() {
   try {
@@ -24,7 +24,7 @@ export async function loadWhiteList() {
 export async function saveWhiteList(list) {
   try {
     await fs.promises.writeFile(jsonPath, JSON.stringify(list, null, 2), 'utf8');
-    console.log('✅ Updated whiteList.json');
+    // console.log('✅ Updated whiteList.json');
   } catch (err) {
     console.error('❌ Failed to write whiteList.json:', err);
   }
