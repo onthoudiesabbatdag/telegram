@@ -45,7 +45,7 @@ import { videoList, shortsList, playList } from './loaders/youTubeVideoListLoade
   // await listShorts();
 })();
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS.split(',');
+const allowedOrigins = process.env.ALLOWED_ORIGENS.split(',');
 // console.log("allowedOrigins:", allowedOrigins)
 
 const app = express();
