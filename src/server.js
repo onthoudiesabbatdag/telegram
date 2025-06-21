@@ -137,8 +137,9 @@ bot.on('message', async(msg) => {
         } 
 
         if (msg.text.toLowerCase() === 'deel') {
-            await shareMessage(bot, chatId);
-            return;
+          if (whiteList.includes(chatId)) { 
+            await shareMessage(bot, chatId);return
+          } else {await subscribeMessage(bot, chatId); return}
         } 
 
         if (whiteList.includes(chatId)) {
@@ -155,7 +156,6 @@ bot.on('message', async(msg) => {
           `Baie welkom by ons Onthou die Sabbatdag Kanaal! Teken in vir die link om na die nuuste boodskap te luister.
 
       1.  Stuur die woordjie, teken
-      2.  Stuur die woordjie, deel, om dit met ander te deel.
       `)
 
     } catch (error) {console.error("bot.on error:", e);}
