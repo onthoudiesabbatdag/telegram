@@ -36,7 +36,7 @@ import { videoList, shortsList, playList } from './loaders/youTubeVideoListLoade
 
 (async () => {
 
-  // console.log("videoList:", videoList[0]);
+  // console.log("videoList:", videoList);
   // console.log("shortsList:", shortsList);
   // console.log("videoList:", JSON.stringify(videoList, null, 2)[0]);
   await handleYouTubeVideos();
@@ -45,7 +45,7 @@ import { videoList, shortsList, playList } from './loaders/youTubeVideoListLoade
   // await listShorts();
 })();
 
-const allowedOrigins = process.env.ALLOWED_ORIGENS;
+const allowedOrigins = process.env.ALLOWED_ORIGINS.split(',');
 // console.log("allowedOrigins:", allowedOrigins)
 
 const app = express();
@@ -71,63 +71,96 @@ bot.setWebHook(WEBHOOK_URL);
 
 let whiteList;
 
-app.post('/webhook', async (req, res) => {
-    // console.log("req.body in webhook:", req.body)
+app.use('/webhook', (req, res, next) => {
+  const contentType = req.headers['content-type'] || '';
+  if (contentType.includes('application/json')) {
+    express.json()(req, res, next); // Telegram JSON
+  } else {
+    express.text({ type: '*/*' })(req, res, next); // WebSub XML
+  }
+});
 
-    try{
+app.post('/webhook', async (req, res, next) => {
 
-        if (typeof req.body === 'object' && (
-          req.body.message && req.body.message.chat.id || 
-          req.body.callback_query)) {
-            // console.log("Receiving a message from Telegram in webhook")
+  const signatureHeader = req.headers['x-hub-signature'];
+  const HUB_SECRET = process.env.HUB_SECRET;
 
-            bot.processUpdate(req.body);
-            return res.sendStatus(200);
-        } 
 
-    } catch (e){
+  if (signatureHeader && HUB_SECRET && typeof req.body === 'string') {
+    try {
+      const [algo, digest] = signatureHeader.split('=');
+      if (algo === 'sha1') {
+        const hmac = crypto.createHmac('sha1', HUB_SECRET);
+        hmac.update(req.body);
+        const expectedDigest = hmac.digest('hex');
 
-      console.error("Receiving a message from external source in webhook")
-
-        let message = JSON.stringify(req.body)
-
-        bot.sendMessage('7017491148', message)
-        res.sendStatus(200);
+        if (digest !== expectedDigest) {
+          console.error("❌ X-Hub-Signature mismatch.");
+          return res.status(403).send('Signature Mismatch');
+        } else {
+          console.log("✅ Signature verified.");
+        }
+      }
+    } catch (e) {
+      console.error("🛑 HMAC error:", e);
     }
+  }
+
+  if (typeof req.body === 'object' && req.body.update_id) {
+    console.log("📬 Telegram update received");
+    await bot.processUpdate(req.body);
+    return res.sendStatus(200);
+  }
+
+  if (typeof req.body === 'string') {
+    console.log("--- 📡 Received XML Notification ---");
+    console.log(req.body);
+    await bot.sendMessage('7017491148', req.body.slice(0, 4000));
+    handleYouTubeVideos();
+    return res.sendStatus(200);
+  }
+
+  console.warn("🟠 Unknown payload format.");
+  res.sendStatus(400);
 });
 
 bot.on('message', async(msg) => {
     const chatId = msg.chat.id;
     // console.log("chatId in bot.on message:", chatId)
 
-    whiteList = await loadWhiteList();
+    try {
+      whiteList = await loadWhiteList();
 
-    if (msg.text.toLowerCase() === 'teken') {
-        await subscribeMessage(bot, chatId);
-        return;
-    } 
+        if (msg.text.toLowerCase() === 'teken') {
+            await subscribeMessage(bot, chatId);
+            return;
+        } 
 
-    if (msg.text.toLowerCase() === 'deel') {
-        await shareMessage(bot, chatId);
-        return;
-    } 
+        if (msg.text.toLowerCase() === 'deel') {
+            await shareMessage(bot, chatId);
+            return;
+        } 
 
-    if (whiteList.includes(chatId)) {
-      await bot.sendMessage(chatId, `ℹ️ Jy is alreeds op die intekenlys.`);
-      await videoMessage(bot, chatId)
-      await bot.sendMessage(chatId, `
-        PS: Stuur die woordjie, deel, om dit met ander te deel.
-      `);
-      return;
+        if (whiteList.includes(chatId)) {
+          await bot.sendMessage(chatId, `ℹ️ Jy is alreeds op die intekenlys.`);
+          await videoMessage(bot, chatId)
+          await bot.sendMessage(chatId, `
+            PS: Stuur die woordjie, deel, om dit met ander te deel.
+          `);
+          return;
 
-    } 
+        } 
 
-    await bot.sendMessage(chatId, 
-      `Baie welkom by ons Onthou die Sabbatdag Kanaal! Teken in vir die link om na die nuuste boodskap te luister.
+        await bot.sendMessage(chatId, 
+          `Baie welkom by ons Onthou die Sabbatdag Kanaal! Teken in vir die link om na die nuuste boodskap te luister.
 
-  1.  Stuur die woordjie, teken
-  2.  Stuur die woordjie, deel, om dit met ander te deel.
-  `)
+      1.  Stuur die woordjie, teken
+      2.  Stuur die woordjie, deel, om dit met ander te deel.
+      `)
+
+    } catch (error) {console.error("bot.on error:", e);}
+
+    
 
   // const postText = videoList
   //   .map(([title, url], i) => `${i + 1}. ${title} - ${url}`)
@@ -143,6 +176,7 @@ bot.on('callback_query', async (query) => {
 
   whiteList = await loadWhiteList();
   console.log("whiteList in callback_query:", whiteList);
+
 
   const postText = videoList
     .map(([title, url], i) => `${i + 1}. ${title} - ${url}`)
@@ -228,6 +262,24 @@ bot.on('callback_query', async (query) => {
 
 app.get('/', (_, res) => {
   res.send('Telegram App is running!');
+});
+
+app.get('/webhook', (req, res) => {
+
+  const hubMode = req.query['hub.mode'];
+  const hubChallenge = req.query['hub.challenge'];
+  const hubTopic = req.query['hub.topic'];
+
+  if (hubMode === 'subscribe' && hubChallenge) {
+      console.log(`WebSub Challenge Detected:`);
+      console.log(`  Mode: ${hubMode}`);
+      console.log(`  Topic: ${hubTopic}`);
+      console.log(`  Challenge: ${hubChallenge}`);
+
+      res.setHeader('Content-Type', 'text/plain');
+      res.status(200).send(hubChallenge);
+      console.log("Responded to challenge.");
+  } else { res.sendStatus(200); }
 });
 
 const PORT = process.env.PORT || 3003;

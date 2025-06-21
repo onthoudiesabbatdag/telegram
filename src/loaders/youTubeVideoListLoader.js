@@ -21,7 +21,7 @@ if (!fs.existsSync(jsonPath)) {
     const raw = fs.readFileSync(jsonPath, 'utf8');
     const data = JSON.parse(raw);
 
-    // ✅ Proper nested arrays like [['Title', 'URL'], ...]
+    
     videoList = Array.isArray(data.videos)
       ? data.videos.map(item => [item.title, item.link])
       : [];
@@ -34,7 +34,6 @@ if (!fs.existsSync(jsonPath)) {
       ? data.playlists.map(item => [item.title, item.link])
       : [];
 
-    // console.log('✅ Parsed all lists as nested arrays');
   } catch (err) {
     console.error('❌ Failed to parse youTubeVideoList.json:', err.message);
   }

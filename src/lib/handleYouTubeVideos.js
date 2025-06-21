@@ -100,6 +100,20 @@ export default async function handleYouTubeVideos() {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
+    function dedupe(arr) {
+      const seen = new Set();
+      return arr.filter(item => {
+        const key = `${item.title}|${item.link}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+result.videos = dedupe(result.videos);
+result.shorts = dedupe(result.shorts);
+result.playlists = dedupe(result.playlists);
+
     fs.writeFileSync(outputFile, JSON.stringify(result, null, 2));
     console.log(`✅ Saved to ${outputFile}`);
   } catch (err) {
