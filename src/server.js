@@ -193,7 +193,7 @@ bot.on('callback_query', async (query) => {
 
         ${postShortsText}
         `);
-    } 
+    } else {await subscribeMessage(bot, cbChatId);}
   }
 
   if (action === 'deelWhatsApp') {
@@ -222,7 +222,7 @@ bot.on('callback_query', async (query) => {
 
         ${postText}
         `);
-    } 
+    } else {await subscribeMessage(bot, cbChatId);}
   }
 
 
